@@ -40,16 +40,33 @@ class FSGFiniteStateMachine:
                 trajectory.append(outbound_transition[1])
                 current_state = self.states[outbound_transition[0]]
 
-            yield "".join(trajectory)
+            yield "".join(trajectory[1:])  # remove initial ^
 
 
     def reverse_match(self, test_string: str):
-        rev_test_string = test_string[::-1]
+        rev_test_string = f"^{test_string}"[::-1]
+        return self._reverse_match(self.states[self.end], rev_test_string)
 
-        current_state = self.states[self.end]
+
+    def _reverse_match(self, start, rev_test_string):
+        current_state = start
 
         while not current_state.is_start:
-            print(current_state)
+            found = []
+            for inbound in current_state.inbound:
+                if inbound[1] == rev_test_string[:len(inbound[1])]:
+                    found.append(inbound)
+
+            if len(found) == 0:
+                return False
+            elif len(found) > 0:
+                any_subtree_match = False
+                for state, transition in found:
+                    remaining_substring = rev_test_string[len(transition):]
+                    if self._reverse_match(self.states[state], remaining_substring):
+                        any_subtree_match = True
+                return any_subtree_match
+        return True
 
 
 def build_state_machine():
@@ -61,7 +78,7 @@ def build_state_machine():
     FSG.add_state(FSGState("qc"))
     FSG.add_state(FSGState("qd", is_end=True))
 
-    FSG.add_transition("^", "qa", "")
+    FSG.add_transition("^", "qa", "^")
 
     # Qa
     FSG.add_transition("qa", "qb", "f")
@@ -80,6 +97,7 @@ def build_state_machine():
 
     return FSG
 
+
 def run_regex_tests(regex_to_test, samples):
     passed = Counter()
     failed = Counter()
@@ -94,6 +112,34 @@ def run_regex_tests(regex_to_test, samples):
     for regex in regex_to_test:
         print(f"'{regex}' -> passed {passed[regex]} out of {passed[regex] + failed[regex]}")
 
+
+def test_reverse_match(state_machine: FSGFiniteStateMachine, num_samples: int = 100):
+    errors = 0
+    for string in state_machine.generate_test_strings(num_samples):
+        if not state_machine.reverse_match(string):
+            errors += 1
+
+    if errors > 0:
+        print("reverse match not implemented correctly!")
+        return False
+    else:
+        print("reverse match implemented correctly!")
+        return True
+
+
+def generate_random_sample_strings(characters: str, num_samples: int = 100):
+    chars = characters.split()
+    num_possibilities = len(chars)
+
+    for i in range(num_samples):
+        random.shuffle(chars)
+        string = []
+        while random.randrange(num_possibilities + 1) != 0:
+            string.append(chars[random.randrange(num_possibilities)])
+
+        yield "".join(string)
+
+
 if __name__ == '__main__':
     FSG = build_state_machine()
 
@@ -104,10 +150,20 @@ if __name__ == '__main__':
         "^((g(ss|ff|g))|fs)*(s|((f|gs)?gg))$"
     ]
 
-    num_samples = 100000
-    run_regex_tests(regex_to_test, FSG.generate_test_strings(num_samples))
+    #test_reverse_match(FSG, 1000)
 
-        #print(failed)
+    for sample in generate_random_sample_strings("f s g", 10000000):
+        test_with_regex = re.search(regex_to_test[3], sample) is not None
+        test_with_FSG_reverse = FSG.reverse_match(sample)
+
+        if test_with_regex != test_with_FSG_reverse:
+            print(sample)
+
+
+
+
+
+
 
 
 
