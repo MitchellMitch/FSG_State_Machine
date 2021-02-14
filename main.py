@@ -42,11 +42,9 @@ class FSGFiniteStateMachine:
 
             yield "".join(trajectory[1:])  # remove initial ^
 
-
     def reverse_match(self, test_string: str):
         rev_test_string = f"^{test_string}"[::-1]
         return self._reverse_match(self.states[self.end], rev_test_string)
-
 
     def _reverse_match(self, start, rev_test_string):
         current_state = start
@@ -99,6 +97,7 @@ def build_state_machine():
 
 
 def run_regex_tests(regex_to_test, samples):
+    print("\nRunning regex tests ...\n")
     passed = Counter()
     failed = Counter()
 
@@ -140,8 +139,30 @@ def generate_random_sample_strings(characters: str, num_samples: int = 100):
         yield "".join(string)
 
 
+def run_reverse_tests(regex_to_test, state_machine: FSGFiniteStateMachine, samples):
+    print("\nRunning reverse tests ...\n")
+
+    passed = Counter()
+    failed = Counter()
+
+    for sample in samples:
+        for regex in regex_to_test:
+            test_with_regex = re.search(regex, sample) is not None
+            test_with_reverse_match = state_machine.reverse_match(sample)
+
+            if test_with_regex != test_with_reverse_match:
+                failed[regex] += 1
+            else:
+                passed[regex] += 1
+
+    for regex in regex_to_test:
+        print(f"'{regex}' -> passed {passed[regex]} out of {passed[regex] + failed[regex]}")
+
+
 if __name__ == '__main__':
     FSG = build_state_machine()
+
+    # test_reverse_match(FSG, 1000)
 
     regex_to_test = [
         "^(gff|gss|ff|sf)*(fgg|gsgg|s|gg)$",
@@ -150,14 +171,15 @@ if __name__ == '__main__':
         "^((g(ss|ff|g))|fs)*(s|((f|gs)?gg))$"
     ]
 
-    #test_reverse_match(FSG, 1000)
+    # run forward tests
+    run_regex_tests(regex_to_test, FSG.generate_test_strings(100000))
 
-    for sample in generate_random_sample_strings("f s g", 10000000):
-        test_with_regex = re.search(regex_to_test[3], sample) is not None
-        test_with_FSG_reverse = FSG.reverse_match(sample)
+    # run reverse tests
+    run_reverse_tests(regex_to_test, FSG, generate_random_sample_strings("f s g | a", 100000))
 
-        if test_with_regex != test_with_FSG_reverse:
-            print(sample)
+
+
+
 
 
 
